@@ -71,122 +71,29 @@ message -> LLM (JSON request only) -> session merge -> engine -> templated answe
 
 ## Design decisions
 
-**Data and IDs.** ID = `<source>:<original key>` (`ar`, `epi`, `fn`), so it is stable and never collides
-across files. Title, ingredient lines and instructions are kept as in the file; only the scraper
-artifact `ADVERTISEMENT` is removed. Records with no title, ingredients or instructions are skipped and
-counted (shown at startup).
-
-**Step rule.** One step = one non-empty line (paragraph) of the original instructions, ignoring lines
-that aren't cooking steps (video links, photo credits, equipment lists). Simple and reproducible, but it
-depends on how each site formatted the text (some recipes are one paragraph).
-
-**Ingredient normalization.** Each line is cleaned to a name: quantities, units, parentheticals and
-size/prep words are removed, and the name is the first comma-separated part that still names something
-(`2 cups finely chopped onions, divided` -> `onions`, `4 skinless, boneless chicken breasts` ->
-`chicken breasts`). Matching is word-boundary and plural-insensitive, with a small synonym table
-(scallion = green onion, garbanzo = chickpea...). Two modes:
-- **strict** for "contains" / "I have": different products don't count. `garlic` does not cover
-  `garlic powder`, `rice` does not cover `rice vinegar`, `tomato` does not cover `tomato paste`.
-- **broad** for exclusions: anything on the whole original line mentioning the word counts, so a cleaning
-  mistake can't let a forbidden item through. "No peanuts" also removes peanut oil
-  and peanut butter. Over-excluding is the safe side for restrictions.
-
-Diet words map to categories (`dairy`, `egg`, `nuts`, `gluten`, `vegetarian`, `vegan`...) with explicit
-exceptions (coconut milk and peanut butter are not dairy, nutmeg is not a nut).
-
-**Retrieval.** TF-IDF (unigrams + bigrams) over title (counted twice) + cleaned ingredient names.
-Queries are dish names and ingredients, which are lexical, so TF-IDF works well, is deterministic,
-fast, needs no model download and is easy to explain. Restrictions are applied to **every** scored
-recipe, not to a small top-k, so "no dairy" can't be lost after retrieval.
-
-**Computation.** Counts, percentages, means, medians and rankings run over the complete filtered set.
-Percentages use all loaded recipes as the denominator, unless the question is about current search results. Ties are broken by recipe ID so results are
-reproducible. The LLM never sees or produces these numbers.
-
-**Follow-ups.** The session keeps the active task (search or match), its query/ingredients and the
-restrictions. A new restriction refines the active task. Restrictions stay on (shown under every
-answer) until the user says `reset` or allows the item again; they are never dropped silently.
-"#2" refers to the 2nd result shown last. For statistics, a turn that only adds a restriction ("and
-without dairy?") refines the last question; a turn with its own filters starts a new one. "How many of
-those..." counts within the full set of current search results, and that set becomes the denominator.
-
-**LLM safety net.** Testing showed the LLM sometimes drops a hard rule, so "no dairy"-style restrictions
-and "use all of them" are also read from the message by a small regex in `bot.py`.
-
-**Vague requests.** For something like "light for summer", the LLM rewrites the request into concrete
-dish and ingredient words. The search text is shown in the answer, and results still come only from the data.
-
-**Matching (Task 2).** Candidates = recipes using at least one of your ingredients. Hard constraints
-are filters, never score penalties. Ranking is lexicographic so every position has a one-line reason:
-1) more of your ingredients used, 2) fewer extra ingredients needed (salt, pepper, water assumed in the
-pantry and listed separately), 3) fewer steps, 4) recipe ID. The user can reorder 1-3. Each result shows
-matched, not-used and extra-required ingredients. If nothing passes the constraints, the answer says
-**NO MATCH** and shows the closest recipes separately, each labelled with what it violates.
-Quantities are compared only when the recipe line uses the same unit (and both are raw or both
-cooked); otherwise it says "not verified".
-
-**Substitution (Task 3).** Two sources, kept separate in every answer:
-- *Candidates* (which substitutes to check, typical ratio, role of the ingredient, predicted effect)
-  come from a short hand-written table of general cooking knowledge in `substitute.py`, and are
-  labelled as such.
-- *Evidence* comes only from the local data. Take the 1,500 recipes most similar to the one being
-  adapted, split them into those that still use the ingredient and those that don't, and for each
-  candidate compare how often it appears in each group. A candidate that is much more common when the
-  ingredient is absent is plausibly replacing it. Recipes whose titles say "eggless", "dairy-free",
-  "vegan"... are shown as direct evidence; the rest is labelled indirect (co-occurrence, not a tested
-  swap). Status per candidate: supported (>= 3 recipes and positive difference), weak (1-2), conflicting
-  (appears as often or more when the ingredient is still used, or is already in the recipe), none, or
-  blocked by a restriction.
-
-The answer gives an updated ingredient list and revised instructions (changed lines are marked).
-Lines that break a restriction are also adapted; if one can't be supported, it is marked **NOT
-replaced** and the answer says the recipe does not meet the restriction. If no candidate has local
-support, no adaptation is given. Effects on taste/texture are predictions: the dataset has no
-ratings or outcomes to verify them. Nothing is claimed to be medically safe.
-
-**External search.** Not used. All evidence is local; the only outside knowledge is the labelled
-candidate table.
-
-**Unsupported questions.** Calories, nutrition, cooking time, ratings and price aren't in the data.
-The bot says so instead of estimating. For time questions it quotes the timed instruction lines as
-written, clearly not as a total.
+- **IDs and data.** ID = `<source>:<original key>` (`ar`, `epi`, `fn`), so it is stable and unique across files. Original text is kept; only the scraper word `ADVERTISEMENT` is removed. Incomplete records are skipped and counted at startup.
+- **Step rule.** One step = one non-empty line of the instructions, ignoring video links, photo credits and equipment lists. Reproducible, but some recipes are one long paragraph.
+- **Normalization.** Each ingredient line is cleaned to a name (`2 cups finely chopped onions, divided` -> `onions`). Matching ignores plurals and uses a small synonym table. Two modes:
+  - *Strict* for "contains" and "I have": `garlic` does not cover `garlic powder`.
+  - *Broad* for restrictions: any mention on the whole original line counts, so "no peanuts" also removes peanut oil. Diet words map to categories with exceptions (coconut milk is not dairy).
+- **Retrieval.** TF-IDF over title (counted twice) and ingredient names, because queries are mostly dish names and ingredients. It is deterministic and needs no model download. For vague requests the LLM writes concrete search words, shown in the answer. Restrictions are checked on every match, not a top-k.
+- **Computation.** Counts, averages and rankings run in Python over the complete filtered set. Percentages use all loaded recipes, or the current results for "of those" questions. Ties are broken by recipe ID. The LLM never sees or produces these numbers.
+- **Follow-ups.** The session keeps the active task and its query or ingredients, and a new restriction refines it. Restrictions stay on, shown under each answer, until `reset` or until the user allows the item again. `#2` means the 2nd result shown last.
+- **LLM safety net.** The LLM sometimes dropped a hard rule in testing, so "no dairy"-style restrictions and "use all of them" are also read from the message by a small regex.
+- **Matching (Task 2).** Hard constraints are filters, never score penalties. Ranking order: most of your ingredients used, fewest extra ingredients (salt, pepper and water assumed), fewest steps, then recipe ID. If nothing qualifies, the answer says NO MATCH and shows the closest recipes separately, labelled with what they violate. Quantities are compared only when the units match; otherwise they are marked "not verified".
+- **Substitution (Task 3).** A short hand-written table proposes candidates, ratios and predicted effects, labelled as general knowledge. Evidence comes only from local data: among the 1,500 most similar recipes, compare how often a candidate appears without the ingredient versus with it. Titles like "eggless" count as direct evidence; the rest is labelled indirect. Status is supported (3+ recipes, positive difference), weak (1-2), conflicting (not more common without it, or already in the recipe), none, or blocked by a restriction. The answer gives updated ingredients and instructions, or no adaptation if nothing is supported. Effects are predictions, and nothing is claimed to be medically safe.
+- **External search.** Not used. All evidence is local; the only outside knowledge is the labelled table.
+- **Unsupported questions.** Calories, nutrition, cooking time, ratings and price aren't in the data, so the bot says so instead of estimating.
 
 ## Evaluation
 
-`eval/cases.py` has 10 conversations (21 turns) across all three tasks: multi-turn refinement, aggregate
-statistics, ranking, matching with a follow-up, quantities, a no-match case, two substitutions, a
-substitution with no supported candidate, and unsupported attributes. Checks test properties that must
-hold on any data, for example:
-- every result after "no dairy" has no dairy line
-- the garlic+onion count is <= each single count, identical on re-run, and the answer states the
-  percentage with its denominator
-- the 5 fewest-step tomato recipes really are the global minimum
-- match results respect max steps and exclusions and are sorted by the stated key
-- every recipe ID cited as substitution evidence exists and doesn't contain the removed ingredient
-- adapted ingredients contain no restricted item unless it is explicitly flagged as not replaced
+`eval/cases.py` has 10 conversations (21 turns) across all three tasks, including multi-turn follow-ups, statistics, a no-match case and weak substitution evidence. Checks test properties that must hold on any data, for example: results after "no dairy" contain no dairy, rankings really are the minimum, and cited recipe IDs exist. Transcripts are in `eval/RESULTS.md` and the plain LLM comparison is in `eval/BASELINE.md`.
 
-Results with full transcripts: `eval/RESULTS.md`. With `--llm`, it also reports how many LLM parses
-matched the expected request.
+Results on the full data (122,937 recipes, model `openai/gpt-oss-120b`; LLM parses can vary between runs):
 
-**One-shot LLM vs this system** (`eval/BASELINE.md`): a plain LLM asked "how many recipes contain both
-garlic and onion?" or "which five tomato recipes have the fewest steps, with IDs?" has no access to the
-data, so it can only guess a number or invent IDs; the script checks its IDs against the dataset. The
-system computes the count over the full data and cites only real IDs. For calories, the system refuses
-because the field doesn't exist.
-
-**Results** (full data, 122,937 recipes, model `openai/gpt-oss-120b`; LLM parses can vary between runs):
-- With expected requests fed straight to the engine: 26/26 checks passed.
-- With the LLM parsing the messages: 26/26 checks passed and 18/21 parses matched the expected request. The
-  3 differences were harmless (`heavy cream` vs `cream`, a shorter search query, a repeated query).
-- What failed along the way: in earlier runs the LLM sometimes dropped a hard rule ("use all three", "without
-  dairy"), which broke 2 checks. A prompt example did not reliably fix it, so those phrases are now also read
-  by a regex in code. The parser is still the weakest link: a restriction worded in a way the regex doesn't
-  cover depends on the LLM catching it.
-- One-shot LLM: with no data it reported about 31,900 garlic-and-onion recipes (about 25.6%) in one run and
-  about 24,500 (19.6%) in another, both presented as analysis, and invented an "official count" of 124,815
-  recipes. The computed answer is 16,552 (13.46% of 122,937), reproducible on every run. Its count also treats
-  garlic powder as garlic, which ours doesn't. Asked for the five tomato recipes with the fewest steps, it
-  said it couldn't access the data and returned code with no recipe IDs.
+- **Worked.** 26/26 checks passed with expected requests fed straight to the engine, and 26/26 with the LLM parsing messages. 18/21 parses matched the expected request; the 3 differences were harmless.
+- **Failed along the way.** The LLM sometimes dropped a hard rule ("use all three", "without dairy"), which broke 2 checks. A prompt example did not reliably fix it, so those phrases are now also read by a regex. The parser is still the weakest link: a restriction worded in a way the regex doesn't cover depends on the LLM catching it.
+- **One-shot LLM.** With no data, it reported about 31,900 garlic-and-onion recipes (25.6%) in one run and about 24,500 (19.6%) in another, both presented as analysis, and invented an "official count" of 124,815 recipes. The computed answer is 16,552 (13.46% of 122,937), the same on every run; its count also treats garlic powder as garlic, which ours doesn't. For the five tomato recipes with the fewest steps, it returned code and no recipe IDs.
 
 ## Limitations
 
