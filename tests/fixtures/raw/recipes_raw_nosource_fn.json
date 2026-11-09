@@ -1,0 +1,6 @@
+{
+  "fn001": {"title": "Spanish Rice with Eggs", "ingredients": ["1 cup long-grain rice", "1 onion, chopped", "2 tomatoes, diced", "2 eggs", "1 green bell pepper", "1 teaspoon paprika", "2 cups chicken broth"], "instructions": "Toast rice in a pan.\nAdd onion and pepper; cook 5 minutes.\nAdd tomatoes, paprika and broth.\nSimmer 20 minutes.\nTop with fried eggs.\nServe.\nGarnish.", "picture_link": null},
+  "fn002": {"title": "Applesauce Spice Cake", "ingredients": ["2 cups flour", "1 cup applesauce", "1/2 cup oil", "1 cup sugar", "1 teaspoon cinnamon", "1 teaspoon baking soda"], "instructions": "Preheat oven.\nMix everything.\nBake 35 minutes.", "picture_link": null},
+  "fn003": {"title": "Banana Pancakes", "ingredients": ["1 cup flour", "1 banana, mashed", "1 egg", "3/4 cup milk", "1 tablespoon sugar"], "instructions": "Whisk egg, milk and banana.\nStir in flour and sugar.\nCook on a griddle.", "picture_link": null},
+  "fn004": {"title": "Saffron Paella", "ingredients": ["2 cups rice", "1 pinch saffron", "1 pound shrimp", "1 onion", "4 cups fish stock"], "instructions": "Cook onion.\nAdd rice, saffron and stock.\nAdd shrimp and finish.", "picture_link": null}
+}

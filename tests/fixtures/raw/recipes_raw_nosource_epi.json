@@ -1,0 +1,8 @@
+{
+  "epi001": {"title": "Penne with Coconut Cream Sauce", "ingredients": ["1 pound penne", "1 (14 ounce) can coconut milk", "2 cloves garlic, minced", "1 cup spinach", "2 tablespoons olive oil"], "instructions": "Cook penne.\nSaute garlic in olive oil, add coconut milk and simmer until thickened.\nStir in spinach and pasta.", "picture_link": null},
+  "epi002": {"title": "Dairy-Free Creamy Pasta", "ingredients": ["12 ounces pasta", "1 cup raw cashews, soaked", "1 cup vegetable broth", "2 cloves garlic", "1 tablespoon lemon juice"], "instructions": "Cook pasta.\nBlend cashews, broth, garlic and lemon until smooth.\nToss sauce with pasta and warm through.", "picture_link": null},
+  "epi003": {"title": "Pasta with Cream and Peas", "ingredients": ["12 ounces fettuccine", "1 cup heavy cream", "1 cup peas", "1/2 cup grated parmesan"], "instructions": "Cook pasta.\nSimmer cream with peas.\nToss with pasta and parmesan.", "picture_link": null},
+  "epi004": {"title": "Lemon Olive Oil Pasta", "ingredients": ["12 ounces spaghetti", "1/3 cup olive oil", "2 cloves garlic", "1 lemon, zested", "1/2 cup reserved pasta water"], "instructions": "Cook pasta, reserving water.\nWarm oil with garlic and lemon.\nToss with pasta and water until glossy.", "picture_link": null},
+  "epi005": {"title": "Chocolate Cake", "ingredients": ["2 cups flour", "2 eggs", "1 cup milk", "1/2 cup butter", "1 cup sugar", "1/2 cup cocoa"], "instructions": "Mix.\nBake 30 minutes.", "picture_link": null},
+  "epi006": {"title": "Banana Oat Muffins", "ingredients": ["1 cup flour", "1 cup oats", "2 bananas, mashed", "1/2 cup yogurt", "1 egg", "1/3 cup honey"], "instructions": "Mix wet ingredients.\nFold in dry ingredients.\nBake 22 minutes.", "picture_link": null}
+}
